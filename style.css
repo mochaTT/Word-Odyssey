@@ -88,6 +88,13 @@ button{font-family:inherit; cursor:pointer; border:none; -webkit-tap-highlight-c
 .choice.dunno{justify-content:center;}
 .choice.dunno.wrong{background:var(--blue-soft); border-color:var(--blue); color:#1c3a6b;}
 
+/* ---- mode switch / sense badge ---- */
+.seg{display:flex; background:#e7f1ea; border-radius:999px; padding:4px; gap:4px;}
+.seg button{flex:1; padding:10px 8px; border-radius:999px; background:none; font-size:14px; font-weight:800; color:var(--ink-soft);}
+.seg button.active{background:var(--green); color:#fff; box-shadow:var(--shadow);}
+.modedesc{margin-top:10px; line-height:1.5;}
+.sensebadge{display:inline-block; margin-top:10px; background:var(--yellow-soft); color:#7a5a00; font-size:12px; font-weight:800; padding:4px 12px; border-radius:999px;}
+
 /* ---- feedback ribbon ---- */
 .ribbon{border-radius:var(--r-lg); padding:22px 18px; text-align:center; box-shadow:var(--shadow); margin-bottom:14px; color:#fff;}
 .ribbon.ok{background:linear-gradient(160deg,#5fc98a,#2c8354);}
@@ -131,8 +138,12 @@ nav button.active{color:#fff; background:rgba(255,255,255,.14);}
   :root:not([data-theme="light"]){
     --card:#22302d; --ink:#eef3f0; --ink-soft:#a9b8b2;
   }
+  :root:not([data-theme="light"]) .seg{background:#182320;}
+  :root:not([data-theme="light"]) .sensebadge{background:#4a3f12; color:#ffe9a0;}
   body{background:#182320;}
 }
 :root[data-theme="dark"]{
   --card:#22302d; --ink:#eef3f0; --ink-soft:#a9b8b2;
 }
+:root[data-theme="dark"] .seg{background:#182320;}
+:root[data-theme="dark"] .sensebadge{background:#4a3f12; color:#ffe9a0;}

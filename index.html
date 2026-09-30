@@ -31,6 +31,14 @@
       <div class="row"><h3>今日の学習</h3><span class="small" id="homeToday">0 / 100語</span></div>
       <div class="bar"><span id="homeTodayBar" style="width:0%"></span></div>
     </div>
+    <div class="card">
+      <h3>出題モード</h3>
+      <div class="seg" id="modeSeg">
+        <button data-mode="normal" onclick="setMode(false)">通常</button>
+        <button data-mode="split" onclick="setMode(true)">意味を分割</button>
+      </div>
+      <div class="small modedesc" id="homeModeDesc"></div>
+    </div>
     <button class="btn" onclick="startSession()">📖 学習をはじめる</button>
 
     <div class="card" style="margin-top:16px;">
@@ -48,8 +56,9 @@
     <div class="qbar"><span id="qbarInner" style="width:0%"></span></div>
 
     <div class="card wordcard">
-      <div class="small prompt">この単語の意味として最も近いものを選んでください</div>
+      <div class="small prompt" id="studyPrompt">この単語の意味として最も近いものを選んでください</div>
       <div class="word-big"><span id="studyWord">word</span></div>
+      <div><span class="sensebadge" id="studySense" style="display:none;"></span></div>
     </div>
     <div class="feedback" id="studyFeedback"></div>
     <div id="studyChoices"></div>
