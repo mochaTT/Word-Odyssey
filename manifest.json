@@ -1,0 +1,17 @@
+{
+  "name": "Word Odyssey",
+  "short_name": "WordOdyssey",
+  "description": "英単語と、あなたの冒険を。",
+  "lang": "ja",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#eef7f3",
+  "theme_color": "#12525c",
+  "icons": [
+    { "src": "icons/icon_192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon_512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon_512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
