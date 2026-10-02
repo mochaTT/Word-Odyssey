@@ -1,6 +1,6 @@
 {
   "name": "Word Odyssey",
-  "short_name": "WordOdyssey",
+  "short_name": "Word Odyssey",
   "description": "英単語と、あなたの冒険を。",
   "lang": "ja",
   "start_url": "./index.html",
