@@ -2,8 +2,6 @@ const STAGE_SIZE = 100;
 const NUM_STAGES = Math.ceil(WORDS.length / STAGE_SIZE);
 const DAILY_GOAL = 100;
 const AREA_NAMES = ["はじまりの島","緑の森","湖の町","雪の山","太陽の丘","星降る谷","虹の岬","深緑の森","青い湖畔","古の遺跡","風の高原","満月の丘","霧の谷","黄金の平原","静寂の森","波音の浜","氷結の峰","光の回廊","夢見の丘","終わりなき草原","蒼穹の塔","銀河の橋","刻の遺跡","世界の果て"];
-const COLLECTION_POOL = ["🌳","🐦","🏠","🌸","🦊","🏪","🌾","🐱","🏫","🍄","🐇","🏯","🌻","🦉","🗼","🍀","🐿️","💒","🌺","🦋","🎡","🌿","🐸","🗻","🏆","🎁","💎","👑"];
-const UNLOCK_EVERY = 5;
 const MASCOT_LINES = {
   home:["今日もがんばろう！","一つずつ覚えていこう！","キミの世界を育てよう！"],
   ok:["やったね！","その調子！","覚えてきたね！"],
@@ -14,7 +12,7 @@ const MASCOT_LINES = {
 let state = null;
 function defaultState(){
   return { stats:{}, exp:0, coins:0, todayCount:0, todayDate:new Date().toDateString(),
-    totalStudied:0, totalMastered:0, unlockedStage:0, activeStage:0, collection:[],
+    totalStudied:0, totalMastered:0, unlockedStage:0, activeStage:0,
     splitMode:false, splitStats:{} };
 }
 function load(){
@@ -160,7 +158,7 @@ function showScreen(name){
   document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active', b.dataset.scr===name));
   if(name==='home') renderHome();
   if(name==='world') renderWorld();
-  if(name==='collection') renderCollection();
+  if(name==='dict') renderDict();
   if(name==='menu') renderMenu();
 }
 
@@ -206,17 +204,62 @@ function renderWorld(){
   }
 }
 
-function renderCollection(){
-  const total = Math.floor(state.totalMastered/UNLOCK_EVERY);
-  document.getElementById('collectionCount').textContent = Math.min(total,COLLECTION_POOL.length)+' / '+COLLECTION_POOL.length+' 集めた';
-  const g = document.getElementById('collectionGrid'); g.innerHTML='';
-  COLLECTION_POOL.forEach((emoji,i)=>{
-    const unlocked = i < total;
-    const d = document.createElement('div');
-    d.className = 'gitem'+(unlocked?'':' locked');
-    d.innerHTML = `<div>${unlocked?emoji:'❔'}</div><div class="lbl">${unlocked?'':'未開放'}</div>`;
-    g.appendChild(d);
-  });
+// ---- 辞書 ----
+let _dictMap = null;
+function getDictMap(){
+  if(_dictMap) return _dictMap;
+  _dictMap = new Map();
+  const add=(word,nums)=>{
+    const k = word.toLowerCase();
+    const cur = _dictMap.get(k) || { word, nums:[] };
+    nums.forEach(n=>{ if(!cur.nums.includes(n)) cur.nums.push(n); });
+    _dictMap.set(k, cur);
+  };
+  // 見出語は data.js の並び順（番号 = 位置+1）から、派生語・句は索引データから
+  WORDS.forEach((w,i)=>add(w.w,[String(i+1)]));
+  DICT_INDEX.forEach(([word,nums])=>add(word, nums.split(',')));
+  return _dictMap;
+}
+function dictRef(n, term){
+  if(/^p\./.test(n)) return `<div class="dref"><div class="dhead"><span class="dno">巻頭 ${n}</span><span class="small">「重要な基本動詞」のページです</span></div></div>`;
+  const i = +n - 1, w = WORDS[i];
+  if(!w) return '';
+  const st = state.stats[i] || {};
+  const same = term && term.toLowerCase()===w.w.toLowerCase();
+  return `<div class="dref"><div class="dhead"><span class="dno">No.${n}</span><b>${same?'':'見出語 → '}${esc(w.w)}</b>${st.mastered?'<span>💎</span>':''}</div>
+    <div class="dmean">${formatMeaning(w.full)}</div></div>`;
+}
+function esc(t){ return String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function renderDict(){
+  const q = (document.getElementById('dictInput').value||'').trim();
+  const box = document.getElementById('dictResults'), hint = document.getElementById('dictHint');
+  const LIMIT = 40; let html = '', shown = 0, total = 0;
+  if(!q){
+    hint.textContent = '索引の単語（派生語・熟語を含む）から、見出語と意味を探せます。';
+    box.innerHTML = ''; return;
+  }
+  if(/^\d{1,4}$/.test(q)){
+    const w = WORDS[+q-1];
+    hint.textContent = w ? '単語番号 '+q : '単語番号は 1〜'+WORDS.length+' です。';
+    box.innerHTML = w ? `<div class="card dictitem">${dictRef(q,null)}</div>` : '';
+    return;
+  }
+  if(/[^\x00-\x7F]/.test(q)){          // 日本語：意味から探す
+    const hits = [];
+    WORDS.forEach((w,i)=>{ if(w.full.includes(q)) hits.push(i); });
+    total = hits.length;
+    hits.slice(0,LIMIT).forEach(i=>{ html += `<div class="card dictitem">${dictRef(String(i+1),WORDS[i].w)}</div>`; shown++; });
+  } else {                              // 英語：前方一致 → 部分一致
+    const lq = q.toLowerCase();
+    const pre = [], mid = [];
+    getDictMap().forEach((e,k)=>{ if(k===lq) pre.unshift(e); else if(k.startsWith(lq)) pre.push(e); else if(k.includes(lq)) mid.push(e); });
+    const rows = pre.concat(mid); total = rows.length;
+    rows.slice(0,LIMIT).forEach(e=>{
+      html += `<div class="card dictitem"><div class="dterm">${esc(e.word)}</div>${e.nums.map(n=>dictRef(n,e.word)).join('')}</div>`; shown++;
+    });
+  }
+  hint.textContent = total ? (total>shown ? total+'件中 '+shown+'件を表示（絞り込んでください）' : total+'件') : '見つかりませんでした。';
+  box.innerHTML = html;
 }
 
 function renderWeak(elId, limit){
@@ -337,8 +380,7 @@ function answer(correct, btnEl){
   state.todayCount++; state.totalStudied++; session.answered++;
   save();
   if(masteredNow){
-    if(state.totalMastered % UNLOCK_EVERY === 0) toast('🎁 新しいコレクションを獲得！');
-    else toast('💎「'+w.w+'」が定着しました！');
+    toast('💎「'+w.w+'」が定着しました！');
   } else if(senseNow){
     toast('✅「'+w.w+'」の意味'+CIRC[w.k]+'が定着！');
   }

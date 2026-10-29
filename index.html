@@ -6,13 +6,6 @@
 <title>Word Odyssey - 英単語と、あなたの冒険を。</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;500;700;900&display=swap" rel="stylesheet">
-<link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#12525c">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="Word Odyssey">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<link rel="apple-touch-icon" href="icons/icon_180.png">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -81,11 +74,12 @@
     <div id="stageList"></div>
   </section>
 
-  <!-- COLLECTION -->
-  <section class="screen" id="screen-collection">
-    <h1>🏆 コレクション</h1>
-    <div class="card small" id="collectionCount">0 / 0 集めた</div>
-    <div class="grid" id="collectionGrid"></div>
+  <!-- DICTIONARY -->
+  <section class="screen" id="screen-dict">
+    <h1>📚 辞書</h1>
+    <input class="dictinput" id="dictInput" type="search" placeholder="英単語・日本語・単語番号で検索" autocomplete="off" autocapitalize="off" spellcheck="false" oninput="renderDict()">
+    <div class="small dicthint" id="dictHint"></div>
+    <div id="dictResults"></div>
   </section>
 
   <!-- MENU -->
@@ -103,19 +97,13 @@
     <button class="active" data-scr="home" onclick="showScreen('home')"><span class="ic">🏠</span>ホーム</button>
     <button data-scr="study" onclick="showScreen('study')"><span class="ic">📖</span>学習</button>
     <button data-scr="world" onclick="showScreen('world')"><span class="ic">🌍</span>世界</button>
-    <button data-scr="collection" onclick="showScreen('collection')"><span class="ic">🏆</span>コレクション</button>
+    <button data-scr="dict" onclick="showScreen('dict')"><span class="ic">📚</span>辞書</button>
     <button data-scr="menu" onclick="showScreen('menu')"><span class="ic">☰</span>メニュー</button>
   </nav>
 </div>
 
 <script src="data.js"></script>
+<script src="dict.js"></script>
 <script src="script.js"></script>
-<script>
-  if ('serviceWorker' in navigator) {
-    window.addEventListener('load', function () {
-      navigator.serviceWorker.register('sw.js').catch(function () {});
-    });
-  }
-</script>
 </body>
 </html>
