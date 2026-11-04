@@ -32,8 +32,11 @@ function stageWords(s){ return WORDS.slice(s*STAGE_SIZE, s*STAGE_SIZE+STAGE_SIZE
 function stageMasteredCount(s){ return stageWords(s).reduce((n,w)=>n+((state.stats[w.idx]||{}).mastered?1:0),0); }
 function pick(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
 function formatMeaning(text){
-  let n=0;
-  return text.replace(/\s*(\[[^\]]+\])/g, (m,tag)=>{ n++; return n===1 ? tag : '<br>'+tag; });
+  // 改行するのは品詞が変わる [名][形][副][自][他][前][接][助][動][熟] の前だけ（[植] などは改行しない）
+  return text.replace(/\s*(\[[^\]]+\])/g, (m, tag, off)=>{
+    if(!/^\[[名形副自他前接助動熟]\]$/.test(tag)) return m;
+    return text.slice(0, off).trim()==='' ? tag : '<br>'+tag;
+  });
 }
 // ---- 意味の分割（①②③…） ----
 const CIRC = '①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳';
@@ -116,6 +119,36 @@ function allSensesMastered(idx, n){
   for(let k=0;k<n;k++){ if(!(state.splitStats[idx+':'+k]||{}).mastered) return false; }
   return true;
 }
+// ---- 間違えた問題だけを復習するモード ----
+// 「間違えた問題」＝ 直近の回答が不正解（または「わからない」）のままの問題。正解すると一覧から外れる
+function weakItems(split){
+  const items = [];
+  const bad = st => !!st && /[XD]$/.test(st.hist||'');
+  WORDS.forEach((w, idx)=>{
+    const base = {...w, idx};
+    const ss = split ? getSenses(idx) : null;
+    if(ss){
+      const hasSenseStats = ss.some((_,k)=>state.splitStats[idx+':'+k]);
+      ss.forEach((s,k)=>{
+        const st = state.splitStats[idx+':'+k];
+        // 意味ごとの記録があればそれを使い、通常モードでだけ間違えた単語は全ての意味を対象にする
+        const hit = hasSenseStats ? bad(st) : bad(state.stats[idx]);
+        if(hit) items.push({...base, k, n:ss.length, key:idx+':'+k, choice:s.text});
+      });
+    } else if(bad(state.stats[idx])){
+      items.push({...base, k:null, n:1, key:null, choice:w.full});
+    }
+  });
+  return items;
+}
+function startWeakSession(){
+  const split = !!state.splitMode;
+  const items = weakItems(split);
+  if(items.length===0){ toast('間違えた問題はまだありません'); return; }
+  session = { stage:state.activeStage, round:1, queue: shuffle(items.slice()), review:[], total: items.length, answered:0, split, weak:true };
+  showScreen('study');
+  nextQuestion();
+}
 function setMode(split){
   state.splitMode = !!split; save(); renderMode();
 }
@@ -129,6 +162,8 @@ function renderMode(){
   } else {
     desc.textContent = '1語につき、すべての意味をまとめて出題します';
   }
+  const wb = document.getElementById('weakBtn');
+  if(wb){ const n = weakItems(state.splitMode).length; wb.textContent = '🔁 間違えた問題だけ（'+n+'問）'; wb.disabled = n===0; }
 }
 function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(toast._t); toast._t=setTimeout(()=>t.classList.remove('show'),1800); }
 function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
@@ -206,11 +241,13 @@ function renderWorld(){
 
 // ---- 辞書 ----
 let _dictMap = null;
+// 比較用キー：大文字小文字・空白・チルダの表記ゆれをそろえる
+function dictKey(t){ return String(t).toLowerCase().replace(/[~〜]/g,'～').replace(/\s+/g,''); }
 function getDictMap(){
   if(_dictMap) return _dictMap;
   _dictMap = new Map();
   const add=(word,nums)=>{
-    const k = word.toLowerCase();
+    const k = dictKey(word);
     const cur = _dictMap.get(k) || { word, nums:[] };
     nums.forEach(n=>{ if(!cur.nums.includes(n)) cur.nums.push(n); });
     _dictMap.set(k, cur);
@@ -250,7 +287,7 @@ function renderDict(){
     total = hits.length;
     hits.slice(0,LIMIT).forEach(i=>{ html += `<div class="card dictitem">${dictRef(String(i+1),WORDS[i].w)}</div>`; shown++; });
   } else {                              // 英語：前方一致 → 部分一致
-    const lq = q.toLowerCase();
+    const lq = dictKey(q);
     const pre = [], mid = [];
     getDictMap().forEach((e,k)=>{ if(k===lq) pre.unshift(e); else if(k.startsWith(lq)) pre.push(e); else if(k.includes(lq)) mid.push(e); });
     const rows = pre.concat(mid); total = rows.length;
@@ -299,6 +336,7 @@ function startSession(){
   nextQuestion();
 }
 function studyStageLabel(){
+  if(session.weak) return '復習-'+session.round+' ｜ 間違えた問題'+(session.split?' ｜ 分割':'');
   return 'STAGE '+(session.stage+1)+'-'+session.round+' ｜ '+AREA_NAMES[session.stage%AREA_NAMES.length]+(session.split?' ｜ 分割':'');
 }
 function nextQuestion(){

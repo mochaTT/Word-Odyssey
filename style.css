@@ -61,6 +61,7 @@ button{font-family:inherit; cursor:pointer; border:none; -webkit-tap-highlight-c
 
 .btn{width:100%; padding:16px; border-radius:var(--r-md); font-size:16px; font-weight:800; background:linear-gradient(180deg,var(--green),var(--green-dark)); color:#fff; box-shadow:0 6px 0 #1f6b45, var(--shadow);}
 .btn:active{transform:translateY(3px); box-shadow:0 3px 0 #1f6b45, var(--shadow);}
+.btn:disabled{opacity:.45; box-shadow:none; transform:none; cursor:default;}
 .btn.secondary{background:var(--card); color:var(--green-dark); border:2px solid var(--green-light); box-shadow:var(--shadow);}
 .btn.retry{background:linear-gradient(180deg,var(--coral),#e06a52); box-shadow:0 6px 0 #b3492f, var(--shadow);}
 .btn.blueBtn{background:linear-gradient(180deg,var(--blue),#3f7ed6); box-shadow:0 6px 0 #2e5ea8, var(--shadow);}
