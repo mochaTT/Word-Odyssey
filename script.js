@@ -13,7 +13,7 @@ let state = null;
 function defaultState(){
   return { stats:{}, exp:0, coins:0, todayCount:0, todayDate:new Date().toDateString(),
     totalStudied:0, totalMastered:0, unlockedStage:0, activeStage:0,
-    splitMode:false, splitStats:{} };
+    splitMode:false, splitStats:{}, answerMode:'choice' };
 }
 function load(){
   try{ const raw = localStorage.getItem('wordOdysseySave'); state = raw ? JSON.parse(raw) : defaultState(); }
@@ -21,6 +21,7 @@ function load(){
   if(state.activeStage===undefined) state.activeStage = state.unlockedStage;
   if(state.splitMode===undefined) state.splitMode = false;
   if(!state.splitStats) state.splitStats = {};
+  if(state.answerMode!=='card') state.answerMode = 'choice';
   if(state.todayDate !== new Date().toDateString()){ state.todayDate = new Date().toDateString(); state.todayCount = 0; }
   save();
 }
@@ -145,9 +146,123 @@ function startWeakSession(){
   const split = !!state.splitMode;
   const items = weakItems(split);
   if(items.length===0){ toast('間違えた問題はまだありません'); return; }
-  session = { stage:state.activeStage, round:1, queue: shuffle(items.slice()), review:[], total: items.length, answered:0, split, weak:true };
+  session = { stage:state.activeStage, round:1, queue: shuffle(items.slice()), review:[], total: items.length, answered:0, split, weak:true, card: state.answerMode==='card' };
   showScreen('study');
   nextQuestion();
+}
+// ---- カード式（タップで答えを見る → 右: 正解 / 左: 間違い）----
+const SWIPE_TH = 90;           // この距離(px)以上動かしたらスワイプ確定
+let _drag = null;
+function cardEl(){ return document.getElementById('swipeCard'); }
+function setOverlay(dx){
+  const c = cardEl(); if(!c) return;
+  if(dx>50) c.dataset.d = 'ok'; else if(dx<-50) c.dataset.d = 'ng'; else delete c.dataset.d;
+}
+function resetCardUI(){
+  const c = cardEl(); if(!c) return;
+  const card = !!(session && session.card);
+  c.classList.toggle('cardmode', card);
+  const scr = document.getElementById('screen-study'); if(scr) scr.classList.toggle('cardfill', card);
+  c.classList.remove('revealed');
+  c.style.transition = 'none'; c.style.transform = ''; c.style.opacity = '';
+  setOverlay(0);
+  document.getElementById('cardMean').style.display = 'none';
+  document.getElementById('cardHint').style.display = 'none';
+  document.getElementById('cardBtns').style.display = card ? 'flex' : 'none';
+  document.getElementById('cardNote').style.display = card ? 'block' : 'none';
+  document.getElementById('ngBtn').disabled = true; document.getElementById('okBtn').disabled = true;
+  document.getElementById('studyChoices').style.display = card ? 'none' : '';
+  if(session){ session.revealed = false; session.locked = false; }
+  _drag = null;
+}
+function revealCard(){
+  if(!session || !session.card || session.revealed || session.locked) return;
+  session.revealed = true;
+  const w = session.current;
+  const c = cardEl();
+  c.classList.add('revealed');
+  const m = document.getElementById('cardMean');
+  m.innerHTML = formatMeaning(w.choice); m.style.display = 'block';
+  document.getElementById('studyPrompt').textContent = '覚えていた？';
+  document.getElementById('cardHint').style.display = 'none';
+  document.getElementById('ngBtn').disabled = false; document.getElementById('okBtn').disabled = false;
+}
+function setCardDrag(dx){
+  const c = cardEl();
+  c.style.transition = 'none';
+  c.style.transform = 'translateX('+dx+'px) rotate('+(dx/18)+'deg)';
+  setOverlay(dx);
+}
+function releaseCard(){
+  const c = cardEl();
+  c.style.transition = 'transform .2s ease-out';
+  c.style.transform = '';
+  setOverlay(0);
+}
+function flyCard(ok){
+  if(!session || session.locked) return;
+  const s = session; s.locked = true;
+  const c = cardEl();
+  const dist = (window.innerWidth || 400) * (ok ? 1 : -1);
+  c.style.transition = 'transform .22s ease-in, opacity .22s ease-in';
+  c.style.transform = 'translateX('+dist+'px) rotate('+(ok?25:-25)+'deg)';
+  c.style.opacity = '0';
+  setOverlay(ok ? SWIPE_TH : -SWIPE_TH);
+  document.getElementById('ngBtn').disabled = true; document.getElementById('okBtn').disabled = true;
+  setTimeout(()=>{
+    if(session!==s) return;
+    answer(ok, {classList:{add(){}}});
+    nextQuestion();
+  }, 230);
+}
+function cardAnswer(ok){
+  if(!session || !session.card || !session.revealed || session.locked) return;
+  flyCard(ok);
+}
+function initSwipe(){
+  const el = cardEl(); if(!el) return;
+  el.addEventListener('pointerdown', e=>{
+    if(!session || !session.card || session.locked) return;
+    _drag = { x:e.clientX, y:e.clientY, dx:0, moved:false, id:e.pointerId };
+    try{ el.setPointerCapture(e.pointerId); }catch(_){}
+  });
+  el.addEventListener('pointermove', e=>{
+    if(!_drag || e.pointerId!==_drag.id || !session || session.locked) return;
+    const dx = e.clientX-_drag.x, dy = e.clientY-_drag.y;
+    if(Math.abs(dx)>8 || Math.abs(dy)>8) _drag.moved = true;
+    if(!session.revealed) return;
+    _drag.dx = dx; setCardDrag(dx);
+  });
+  const end = e=>{
+    if(!_drag || e.pointerId!==_drag.id) return;
+    const d = _drag; _drag = null;
+    if(!session || !session.card || session.locked) return;
+    if(!session.revealed){ if(!d.moved && e.type==='pointerup') revealCard(); return; }
+    if(e.type==='pointerup' && Math.abs(d.dx)>=SWIPE_TH) flyCard(d.dx>0); else releaseCard();
+  };
+  el.addEventListener('pointerup', end);
+  el.addEventListener('pointercancel', end);
+  // パソコン用：Space/Enterで答えを見る、→ で正解、← で間違い
+  document.addEventListener('keydown', e=>{
+    const scr = document.getElementById('screen-study');
+    if(!session || !session.card || !scr || !scr.classList.contains('active')) return;
+    if(e.key===' ' || e.key==='Enter'){ e.preventDefault(); revealCard(); }
+    else if(e.key==='ArrowRight') cardAnswer(true);
+    else if(e.key==='ArrowLeft') cardAnswer(false);
+  });
+}
+
+function undo(){
+  if(!session || session.locked || !session.snap){ toast('戻せる回答がありません'); return; }
+  const s = session.snap;
+  state = JSON.parse(s.state); save();
+  session.queue = s.queue; session.review = s.review; session.round = s.round;
+  session.answered = s.answered; session.current = s.cur; session.snap = null;
+  renderQuestion();
+  if(session.card) revealCard();   // カード式は答えを表示した状態に戻す
+}
+function setAnswerMode(m){
+  state.answerMode = m==='card' ? 'card' : 'choice'; save(); renderMode();
 }
 function setMode(split){
   state.splitMode = !!split; save(); renderMode();
@@ -162,6 +277,11 @@ function renderMode(){
   } else {
     desc.textContent = '1語につき、すべての意味をまとめて出題します';
   }
+  document.querySelectorAll('#answerSeg button').forEach(b=>b.classList.toggle('active', b.dataset.ans===state.answerMode));
+  const ad = document.getElementById('answerDesc');
+  if(ad) ad.textContent = state.answerMode==='card'
+    ? 'タップで答えを見て、覚えていたら右へ・間違えたら左へスワイプします'
+    : '4つの選択肢から意味を選びます';
   const wb = document.getElementById('weakBtn');
   if(wb){ const n = weakItems(state.splitMode).length; wb.textContent = '🔁 間違えた問題だけ（'+n+'問）'; wb.disabled = n===0; }
 }
@@ -331,7 +451,7 @@ function startSession(){
   const words = stageWords(s);
   const split = !!state.splitMode;
   const items = buildItems(words, split);
-  session = { stage:s, round:1, queue: shuffle(items.slice()), review:[], total: items.length, answered:0, split };
+  session = { stage:s, round:1, queue: shuffle(items.slice()), review:[], total: items.length, answered:0, split, card: state.answerMode==='card' };
   showScreen('study');
   nextQuestion();
 }
@@ -349,6 +469,11 @@ function nextQuestion(){
     } else { finishSession(); return; }
   }
   session.current = session.queue.shift();
+  renderQuestion();
+}
+function renderQuestion(){
+  document.getElementById('studyFeedback').textContent='';
+  document.getElementById('studyNextBtn').style.display='none';
   const w = session.current;
   document.getElementById('studyStage').textContent = studyStageLabel();
   document.getElementById('studyDiamond').textContent = state.totalMastered+' / '+WORDS.length;
@@ -358,6 +483,14 @@ function nextQuestion(){
   const badge = document.getElementById('studySense');
   badge.style.display = isSense ? 'inline-block' : 'none';
   if(isSense) badge.textContent = '意味 '+CIRC[w.k]+' ／ 全'+w.n+'つ';
+  resetCardUI();
+  if(session.card){
+    document.getElementById('studyChoices').innerHTML = '';
+    document.getElementById('studyPrompt').textContent = isSense ? 'この単語の意味のひとつを思い出してみよう' : 'この単語の意味を思い出してみよう';
+    document.getElementById('cardHint').textContent = 'タップして答えを見る';
+    document.getElementById('cardHint').style.display = 'block';
+    return;
+  }
   document.getElementById('studyPrompt').textContent = isSense
     ? 'この単語の意味のひとつとして正しいものを選んでください'
     : 'この単語の意味として最も近いものを選んでください';
@@ -382,6 +515,8 @@ function nextQuestion(){
 
 function answer(correct, btnEl){
   const w = session.current;
+  // 「戻す」用に、回答する直前の状態を保存しておく
+  session.snap = { state:JSON.stringify(state), queue:session.queue.slice(), review:session.review.slice(), round:session.round, cur:w, answered:session.answered };
   document.querySelectorAll('#studyChoices .choice').forEach(b=>{ b.onclick=null; });
   const isSense = w.k!==null;
   const blank = ()=>({c:0,i:0,d:0,hist:'',mastered:false});
@@ -422,6 +557,7 @@ function answer(correct, btnEl){
   } else if(senseNow){
     toast('✅「'+w.w+'」の意味'+CIRC[w.k]+'が定着！');
   }
+  if(session.card) return;   // カード式はスワイプ後にそのまま次の問題へ進む
   const cfg = { ok:{cls:'ok', text:'正解！'}, ng:{cls:'ng', text:'不正解…'}, dk:{cls:'ng', text:'わからない'} }[kind];
   const fb = document.getElementById('studyFeedback');
   fb.innerHTML = cfg.text; fb.className = 'feedback '+cfg.cls;
@@ -436,4 +572,4 @@ function finishSession(){
   showScreen('home');
 }
 
-document.addEventListener('DOMContentLoaded', ()=>{ load(); showScreen('home'); });
+document.addEventListener('DOMContentLoaded', ()=>{ load(); initSwipe(); showScreen('home'); });

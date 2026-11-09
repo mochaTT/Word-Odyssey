@@ -38,6 +38,12 @@
         <button data-mode="split" onclick="setMode(true)">意味を分割</button>
       </div>
       <div class="small modedesc" id="homeModeDesc"></div>
+      <h3 style="margin-top:16px;">回答方式</h3>
+      <div class="seg" id="answerSeg">
+        <button data-ans="choice" onclick="setAnswerMode('choice')">4択</button>
+        <button data-ans="card" onclick="setAnswerMode('card')">カード（スワイプ）</button>
+      </div>
+      <div class="small modedesc" id="answerDesc"></div>
     </div>
     <button class="btn" onclick="startSession()">📖 学習をはじめる</button>
     <button class="btn retry" id="weakBtn" style="margin-top:14px;" onclick="startWeakSession()">🔁 間違えた問題だけ</button>
@@ -52,17 +58,29 @@
   <section class="screen" id="screen-study">
     <div class="studyhead">
       <span class="tag" id="studyStage">STAGE 1-1｜はじまりの島</span>
-      <span class="chip">💎 <span id="studyDiamond">0/0</span></span>
+      <div class="chips">
+        <button class="undo" onclick="undo()">↶ 戻す</button>
+        <span class="chip">💎 <span id="studyDiamond">0/0</span></span>
+      </div>
     </div>
     <div class="qbar"><span id="qbarInner" style="width:0%"></span></div>
 
-    <div class="card wordcard">
+    <div class="card wordcard" id="swipeCard">
       <div class="small prompt" id="studyPrompt">この単語の意味として最も近いものを選んでください</div>
-      <div class="word-big"><span id="studyWord">word</span></div>
-      <div><span class="sensebadge" id="studySense" style="display:none;"></span></div>
+      <div class="cardcenter">
+        <div class="word-big"><span id="studyWord">word</span></div>
+        <div><span class="sensebadge" id="studySense" style="display:none;"></span></div>
+      </div>
+      <div class="cardmean" id="cardMean" style="display:none;"></div>
+      <div class="cardhint" id="cardHint" style="display:none;"></div>
     </div>
     <div class="feedback" id="studyFeedback"></div>
     <div id="studyChoices"></div>
+    <div class="cardbtns" id="cardBtns" style="display:none;">
+      <button class="btn retry" id="ngBtn" disabled onclick="cardAnswer(false)">× 間違い</button>
+      <button class="btn" id="okBtn" disabled onclick="cardAnswer(true)">○ 正解</button>
+    </div>
+    <div class="small" id="cardNote" style="display:none; text-align:center; margin-top:12px;">タップで答え → 右にスワイプ＝正解 ／ 左にスワイプ＝間違い</div>
     <button class="btn secondary" id="studyNextBtn" style="display:none;" onclick="nextQuestion()">次へ ▶</button>
   </section>
 
